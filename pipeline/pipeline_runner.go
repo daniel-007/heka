@@ -51,12 +51,14 @@ type GlobalConfigStruct struct {
 	MaxPackIdle           time.Duration
 	stopping              bool
 	stoppingMutex         sync.RWMutex
+	shutdownOnce          sync.Once
 	BaseDir               string
 	ShareDir              string
 	SampleDenominator     int
 	sigChan               chan os.Signal
 	Hostname              string
 	abortChan             chan struct{}
+	FullBufferMaxRetries  uint
 }
 
 // Creates a GlobalConfigStruct object populated w/ default values.
@@ -88,9 +90,11 @@ func (g *GlobalConfigStruct) SigChan() chan os.Signal {
 // work so that the caller won't end up blocking part of the shutdown
 // sequence
 func (g *GlobalConfigStruct) ShutDown() {
-	go func() {
-		g.sigChan <- syscall.SIGINT
-	}()
+	g.shutdownOnce.Do(func() {
+		go func() {
+			g.sigChan <- syscall.SIGINT
+		}()
+	})
 }
 
 func (g *GlobalConfigStruct) IsShuttingDown() (stopping bool) {
@@ -251,9 +255,9 @@ func (p *PipelinePack) EncodeMsgBytes() error {
 	return err
 }
 
-// Main function driving Heka execution. Loads config, initializes
-// PipelinePack pools, and starts all the runners. Then it listens for signals
-// and drives the shutdown process when that is triggered.
+// Main function driving Heka execution. Loads config, initializes PipelinePack
+// pools, and starts all the runners. Then it listens for signals and drives
+// the shutdown process when that is triggered.
 func Run(config *PipelineConfig) {
 	LogInfo.Println("Starting hekad...")
 

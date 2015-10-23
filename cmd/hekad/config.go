@@ -19,14 +19,15 @@ package main
 
 import (
 	"fmt"
-	"github.com/bbangert/toml"
-	"github.com/mozilla-services/heka/pipeline"
 	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/bbangert/toml"
+	"github.com/mozilla-services/heka/pipeline"
 )
 
 type HekadConfig struct {
@@ -45,8 +46,9 @@ type HekadConfig struct {
 	SampleDenominator     int           `toml:"sample_denominator"`
 	PidFile               string        `toml:"pid_file"`
 	Hostname              string
-	MaxMessageSize        uint32        `toml:"max_message_size"`
-	LogFlags              int           `toml:"log_flags"`
+	MaxMessageSize        uint32 `toml:"max_message_size"`
+	LogFlags              int    `toml:"log_flags"`
+	FullBufferMaxRetries  uint32 `toml:"full_buffer_max_retries"`
 }
 
 func LoadHekadConfig(configPath string) (config *HekadConfig, err error) {
@@ -72,6 +74,7 @@ func LoadHekadConfig(configPath string) (config *HekadConfig, err error) {
 		PidFile:               "",
 		Hostname:              hostname,
 		LogFlags:              log.LstdFlags,
+		FullBufferMaxRetries:  10,
 	}
 
 	var configFile map[string]toml.Primitive

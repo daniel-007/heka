@@ -84,6 +84,9 @@ Bug Handling
 * Fixed panic that was occurring when loading a config file or directory that
   exists but which registers no plugins (#1597).
 
+* Delay start up when a buffered plugin's buffer is at capacity to give the
+  back-pressure time to resolve (#1738).
+
 0.10.0b1 (2015-08-07)
 =====================
 
