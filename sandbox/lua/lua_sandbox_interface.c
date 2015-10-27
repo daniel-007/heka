@@ -1,5 +1,5 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=2 et sw=2 tw=80: */
+/* vim: set ts=4 et sw=4 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -15,6 +15,10 @@
 #include <string.h>
 #include <time.h>
 #include "_cgo_export.h"
+
+
+#define luai_writestring(s,l) fwrite((s), sizeof(char), (l), stderr)
+#define luai_writeline() (luai_writestring("\n", 1), fflush(stderr))
 
 ////////////////////////////////////////////////////////////////////////////////
 /// Calls to Lua
@@ -225,6 +229,31 @@ int read_message(lua_State* lua)
     }
     return 1;
 }
+
+
+////////////////////////////////////////////////////////////////////////////////
+int print_message(lua_State *L) {
+    int n = lua_gettop(L);  /* number of arguments */
+    int i;
+    lua_getglobal(L, "tostring");
+    for (i=1; i<=n; i++) {
+        const char *s;
+        size_t l;
+        lua_pushvalue(L, -1);  /* function to be called */
+        lua_pushvalue(L, i);   /* value to print */
+        lua_call(L, 1, 1);
+        s = lua_tolstring(L, -1, &l);  /* get result */
+        if (s == NULL)
+            return luaL_error(L,
+                    LUA_QL("tostring") " must return a string to " LUA_QL("print"));
+        if (i>1) luai_writestring("\t", 1);
+        luai_writestring(s, l);
+        lua_pop(L, 1);  /* pop result */
+    }
+    luai_writeline();
+    return 0;
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 int write_message(lua_State* lua)
@@ -508,6 +537,7 @@ int sandbox_init(lua_sandbox* lsb, const char* data_file, const char* plugin_typ
         if (strcmp(plugin_type, "decoder") == 0 ||
             strcmp(plugin_type, "encoder") == 0) {
             lsb_add_function(lsb, &write_message, "write_message");
+            lsb_add_function(lsb, &print_message, "print_message");
         }
         add_to_payload = 1;
     }
