@@ -424,8 +424,8 @@ func (h *HttpBulkIndexer) Index(body []byte) (err error, retry bool) {
 				response.Status, string(response_body)), false
 		}
 		if response.StatusCode > 304 {
-			return fmt.Errorf("HTTP response error. Status: %s. Body: %s", response.Status,
-				string(response_body)), false
+			return fmt.Errorf("HTTP response error. Status: %s. Body: %s. Request body: %s", response.Status,
+				string(response_body), string(body)), false
 		}
 	}
 	return nil, false
