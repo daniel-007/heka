@@ -41,6 +41,11 @@ type ESBatch struct {
 	batch       []byte
 }
 
+type PackInfo struct {
+	bytes       *[]byte
+	queueCursor string
+}
+
 // Output plugin that index messages to an elasticsearch cluster.
 // Largely based on FileOutput plugin.
 type ElasticSearchOutput struct {
@@ -48,7 +53,7 @@ type ElasticSearchOutput struct {
 	dropMessageCount int64
 	count            int64
 	backChan         chan []byte
-	recvChan         chan struct{}
+	recvChan         chan PackInfo
 	batchChan        chan ESBatch // Chan to pass completed batches
 	outBatch         []byte
 	queueCursor      string
@@ -118,7 +123,7 @@ func (o *ElasticSearchOutput) Init(config interface{}) (err error) {
 
 	o.batchChan = make(chan ESBatch)
 	o.backChan = make(chan []byte, 2)
-	o.recvChan = make(chan struct{}, 1024)
+	o.recvChan = make(chan PackInfo, 1024)
 
 	var serverUrl *url.URL
 	if serverUrl, err = url.Parse(o.conf.Server); err == nil {
@@ -185,7 +190,7 @@ func (o *ElasticSearchOutput) ProcessMessage(pack *PipelinePack) error {
 	}
 
 	if outBytes != nil {
-		o.recvChan <- struct{}{bytes: &outBytes, queueCursor: pack.QueueCursor}
+		o.recvChan <- PackInfo{bytes: &outBytes, queueCursor: pack.QueueCursor}
 	}
 
 	return nil
