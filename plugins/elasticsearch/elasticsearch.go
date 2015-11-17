@@ -48,6 +48,7 @@ type ElasticSearchOutput struct {
 	dropMessageCount int64
 	count            int64
 	backChan         chan []byte
+	recvChan         chan struct{}
 	batchChan        chan ESBatch // Chan to pass completed batches
 	outBatch         []byte
 	queueCursor      string
@@ -59,7 +60,6 @@ type ElasticSearchOutput struct {
 	reportLock       sync.Mutex
 	stopChan         chan bool
 	flushTicker      *time.Ticker
-	flushManual      chan struct{}
 }
 
 // ConfigStruct for ElasticSearchOutput plugin.
@@ -118,7 +118,7 @@ func (o *ElasticSearchOutput) Init(config interface{}) (err error) {
 
 	o.batchChan = make(chan ESBatch)
 	o.backChan = make(chan []byte, 2)
-	o.flushManual = make(chan struct{})
+	o.recvChan = make(chan struct{}, 1024)
 
 	var serverUrl *url.URL
 	if serverUrl, err = url.Parse(o.conf.Server); err == nil {
@@ -185,14 +185,9 @@ func (o *ElasticSearchOutput) ProcessMessage(pack *PipelinePack) error {
 	}
 
 	if outBytes != nil {
-		o.outBatch = append(o.outBatch, outBytes...)
-		o.queueCursor = pack.QueueCursor
-		o.count++
-		if len(o.outBatch) > 0 && o.bulkIndexer.CheckFlush(int(o.count), len(o.outBatch)) {
-			o.flushManual <- struct{}{}
-			<-o.flushManual // block until the batch is sent.
-		}
+		o.recvChan <- struct{}{bytes: &outBytes, queueCursor: pack.QueueCursor}
 	}
+
 	return nil
 }
 
@@ -203,9 +198,13 @@ func (o *ElasticSearchOutput) batchSender() {
 		case <-o.stopChan:
 			ok = false
 			continue
-		case <-o.flushManual:
-			o.sendBatch()
-			o.flushManual <- struct{}{}
+		case pack := <-o.recvChan:
+			o.outBatch = append(o.outBatch, *pack.bytes...)
+			o.queueCursor = pack.queueCursor
+			o.count++
+			if len(o.outBatch) > 0 && o.bulkIndexer.CheckFlush(int(o.count), len(o.outBatch)) {
+				o.sendBatch()
+			}
 		case <-o.flushTicker.C:
 			if len(o.outBatch) > 0 {
 				o.sendBatch()
