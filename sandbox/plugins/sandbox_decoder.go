@@ -311,8 +311,10 @@ func (s *SandboxDecoder) Decode(pack *pipeline.PipelinePack) (packs []*pipeline.
 	if retval < 0 {
 		atomic.AddInt64(&s.processMessageFailures, 1)
 		if s.pack != nil {
-			err = fmt.Errorf("Failed parsing: %s payload: %s",
-				s.sb.LastError(), s.pack.Message.GetPayload())
+			if retval != -2 {
+				err = fmt.Errorf("Failed parsing: %s payload: %s",
+					s.sb.LastError(), s.pack.Message.GetPayload())
+			}
 		} else {
 			err = fmt.Errorf("Failed after a successful inject_message call: %s", s.sb.LastError())
 		}
